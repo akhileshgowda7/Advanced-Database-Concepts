@@ -1,0 +1,607 @@
+\documentclass[11pt]{article}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{color}
+
+\newcommand{\red}[1]{{\color{red}#1}}
+\newcommand{\green}[1]{{\color{green}#1}}
+\newcommand{\blue}[1]{{\color{blue}#1}}
+\newcommand{\SFW}[3]{{\color{blue}}}
+
+\newcommand{\redbullet}{$\red{\bullet}$}
+\newcommand{\bluebullet}{$\blue{\bullet}$}
+
+\newtheorem{example}{Example}
+
+\begin{document}
+
+\title{B561 Advanced Database Concepts \\Assignment 2 \\Fall 2021}
+\author{Dirk Van Gucht}
+\date{}
+\maketitle
+
+This {assignment} relies on the lectures
+\begin{itemize}
+\item SQL Part 1 and SQL Part 2 (Pure SQL);
+\item Views;
+\item Relational Algebra (RA);  and 
+\item Joins and semijoins. 
+\end{itemize}
+
+Furthermore, the lecture on the correspondence between Tuple Relational Calculus and SQL should help you to solve problems in this assignment.
+
+To turn in your assignment, you will need to upload to Canvas a single file with name {\tt assignment2.sql} which contains 
+the necessary SQL statements that solve the problems in this assignment.   
+The {\tt assignment2.sql} file must be so that the AI's can run it in their PostgreSQL environment.  
+You should use the {\tt Assignment2Script.sql} file to construct the {\tt assignment2.sql} file. (Note that the data to be used for this assignment is included in this file.)
+In addition, you will need to upload a separate {\tt assignment2.txt} file that contains the results of running
+your queries.
+Finally, you need to upload a file {\tt assignment2.pdf} that contains the solutions to the problems that require it.
+
+
+The problems that need to be included in the {\tt assignment2.sql} are marked with a blue bullet \bluebullet.
+The problems that need to be included in the {\tt assignment2.pdf} are marked with a red bullet \redbullet.
+(You should aim to use Latex to construct your .pdf file.)
+
+\newpage
+\noindent
+\large{\bf Database schema and instances}
+\bigskip
+
+
+
+
+For the problems in this assignment we will use the following database schema:\footnote{The primary key, which may consist of one or more attributes, of each of these relations is underlined.}
+
+\begin{center}
+{\tt
+  \begin{tabular}{l}
+  {Person}($\underline{\tt pid}$, pname, city) \\
+  {Company}($\underline{\tt cname}, {\tt headquarter}$) \\
+  {Skill}($\underline{\tt skill}$) \\
+  {worksFor}($\underline{\tt pid}$, cname, salary) \\
+  {companyLocation}($\underline{\tt cname, city}$) \\
+  {personSkill}($\underline{\tt pid, skill}$) \\
+  {hasManager}($\underline{\tt eid, mid}$) \\
+  {Knows}($\underline{\tt pid1, pid2}$) \\
+   \end{tabular}
+  }
+\end{center}
+
+In this database we maintain a set of persons ({\tt Person}), a set
+of companies ({\tt Company}), and a set of (job) skills ({\tt Skill}).  
+The {\tt pname} attribute in {\tt Person} is the name of the person.  
+The {\tt city} attribute in {\tt Person} specifies the city in which the person lives.  
+The {\tt cname} attribute in {\tt Company} is the name of the company.
+The {\tt headquarter} attribute in {\tt Company} is the name of the city wherein the company has its headquarter.
+The {\tt skill} attribute in {\tt Skill} is the name of a (job) skill.
+
+A person can work for at most one company. This information is maintained in the {\tt worksFor} relation. (We permit that a person does not work for any company.)
+The {\tt salary} attribute in {\tt worksFor} specifies the salary made by the person.
+
+The {\tt city} attribute in {\tt companyLocation} indicates a city in which the company is located.
+(Companies may be located in multiple cities.)
+
+A person can have multiple job skills. This information is maintained in the {\tt personSkill} relation.  A job skill can be
+the job skill of multiple persons.  (A person may not have any job skills, and a job skill may
+have no persons with that skill.)
+
+A pair $(e,m)$ in {\tt hasManager} indicates that person $e$ has  
+person $m$ as one of his or her managers.
+We permit that an employee has multiple managers and that a manager  may manage
+multiple employees.  (It is possible that an employee has no manager
+and that an employee is not a manager.)
+We further require that 
+an employee and his or her managers must work for the
+same company.
+
+The relation {\tt Knows} maintains a set of pairs $(p_1,p_2)$ where $p_1$ 
+and $p_2$ are pids of persons.   The pair $(p_1,p_2)$ indicates that the person with
+pid $p_1$ knows the person with pid $p_2$.
+We do not assume that the relation {\tt Knows} is
+symmetric: it is possible that $(p_1,p_2)$ is in the relation but that
+$(p_2,p_1)$ is not.
+
+The domain for the attributes {\tt pid}, {\tt pid1}, {\tt pid2}, {\tt salary}, {\tt eid}, and {\tt mid} is {\tt integer}.   The domain for all other attributes is {\tt text}.
+
+We assume the following foreign key constraints:
+\begin{itemize}
+\item {\tt pid} is a foreign key in {\tt worksFor} referencing the primary key {\tt pid} in {\tt Person};
+\item {\tt cname} is a foreign key in {\tt worksFor} referencing the primary key {\tt cname} in {\tt Company};
+\item {\tt cname} is a foreign key in {\tt companyLocation} referencing the primary key {\tt cname} in {\tt Company};
+\item {\tt pid} is a foreign key in {\tt personSkill} referencing the primary key {\tt pid} in {\tt Person};
+\item {\tt skill} is a foreign key in {\tt personSkill} referencing the primary key {\tt skill} in {\tt Skill};
+\item {\tt eid} is a foreign key in {\tt hasManager} referencing the primary key {\tt pid} in {\tt Person}; 
+\item {\tt mid} is a foreign key in {\tt hasManager} referencing the primary key {\tt pid} in {\tt Person};
+\item {\tt pid1} is a foreign key in {\tt Knows} referencing the primary key {\tt pid} in {\tt Person}; and
+\item {\tt pid2} is a foreign key in {\tt Knows} referencing the primary key {\tt pid} in {\tt Person}
+\end{itemize}
+
+The file {\tt Assignment2Script.sql} contains the data supplied for this assignment.
+\newpage
+
+\noindent
+\large{\bf Pure SQL and RA SQL}
+
+\bigskip
+In this assignemt, we distinguish between Pure SQL and RA SQL.
+Below we list the {\bf only} features that are allowed in Pure SQL and in RA SQL. 
+
+In particular notice that 
+\begin{itemize}
+\item {\tt JOIN}, {\tt NATURAL~JOIN}, and {\tt CROSS~JOIN} are {\bf not} allowed in Pure SQL.
+\item The predicates  [{\tt NOT}]~{\tt IN}, {\tt SOME}, {\tt ALL}, [{\tt NOT}]~{\tt EXISTS} are {\bf not} allowed in RA SQL.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{c}
+{\bf The only features allowed in Pure SQL} \\ \hline
+\begin{tabular}{l}
+{\tt SELECT ... FROM ... WHERE}\\
+{\tt WITH ...} \\
+{\tt UNION, INTERSECT, EXCEPT} operations \\
+{\tt EXISTS} and {\tt NOT EXISTS} predicates \\
+{\tt IN} and {\tt NOT IN} predicates \\
+{\tt ALL} and {\tt SOME} predicates \\
+{\tt VIEW}s that can only use the above RA SQL features
+\end{tabular} \\
+ \\
+{\bf The only features allowed in Pure SQL features} \\ \hline 
+\begin{tabular}{l}
+{\tt SELECT ... FROM ... WHERE}\\
+{\tt WITH ...} \\
+{\tt UNION, INTERSECT, EXCEPT} operations\\
+{\tt JOIN ... ON ...}, {\tt NATURAL JOIN}, and {\tt CROSS JOIN} operations \\
+{\tt VIEW}s that can only use the above RA SQL features\\ 
+commas in the {\tt FROM} clause are {\bf not} allowed \\
+\end{tabular} \\
+\end{tabular}
+\end{center}
+
+\newpage
+
+\section{Formulating queries in Pure SQL with and without set predicates}
+\label{PureSQL}
+
+An important consideration in formulating queries is to contemplate how they can be written in different, but equivalent, ways. 
+In fact, this is an aspect of programming in general and, as can expected, is also true for SQL.   A learning outcome of this course
+is to acquire skills for writing queries in different ways.    One of the main motivations for this is to learn 
+that different formulations of the same query can 
+dramatically impact performance, sometimes by orders of magnitude.    
+
+
+For the problems in this section, you will need to formulate queries in {Pure SQL} with and without set predicates.
+You can use the SQL operators {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}, unless otherwise specified.
+You are however allowed and  encouraged to use views including temporary and user-defined views.
+
+To illustrate what you need to do, consider the following example.
+\begin{example}\label{PureSQLquery}
+Consider the query ``\emph{Find the pid and name of each person who (a)
+works for a company located in Bloomington  and (b)
+knows a person who lives in Chicago.}''
+
+\begin{description}
+\item[(a)]   Formulate this query in Pure SQL by only using the {\tt EXISTS} or {\tt NOT EXISTS} set predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+A possible solution is
+{\footnotesize
+\begin{verbatim}
+select p.pid, p.pname
+from   Person p
+where  exists (select 1
+               from   worksFor w
+               where  p.pid = w.pid and
+                      exists (select 1
+                              from   companyLocation c
+                              where  w.cname = c.cname and c.city = 'Bloomington')) and
+       exists (select
+               from   Knows k
+               where  p.pid = k.pid1 and
+                      exists (select 1
+                              from   Person p2
+                              where  k.pid2 = p2.pid and
+                                     p2.city = 'Chicago'));
+\end{verbatim}
+}
+
+\item[(b)]   Formulate this query in Pure SQL by only using the {\tt  IN}, {\tt NOT IN}, {\tt SOME}, or {\tt ALL} set membership predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+A possible solution is
+{\footnotesize
+\begin{verbatim}
+select p.pid, p.pname
+from   Person p
+where  p.pid in (select w.pid
+                 from   worksFor w
+                 where  w.cname in (select c.cname
+                                    from   companyLocation c
+                                    where  c.city = 'Bloomington')) and
+       p.pid in (select k.pid1
+                 from   Knows k
+                 where  k.pid2 in (select p2.pid
+                                   from   Person p2
+                                   where  p2.city = 'Chicago'));
+\end{verbatim}
+}
+
+Another possible solution using the {\tt SOME} and {\tt IN} predicates
+{\footnotesize
+\begin{verbatim}
+select p.pid, p.pname
+from   Person p
+where  p.pid = some (select w.pid
+                     from   worksFor w
+                     where  w.cname = some (select c.cname
+                                            from   companyLocation c
+                                            where  c.city = 'Bloomington')) and
+       p.pid in (select k.pid1
+                 from   Knows k
+                 where  k.pid2 in (select p2.pid
+                                   from   Person p2
+                                   where  p2.city = 'Chicago'));
+\end{verbatim}
+}
+
+\item[(c)]   Formulate this query in Pure SQL without using set predicates.
+A possible solution is
+{\footnotesize
+\begin{verbatim}
+select p.pid, p.pname
+from   Person p, worksFor w, companyLocation c
+where  p.pid = w.pid and
+       w.cname = c.cname and
+       c.city = 'Bloomington'
+intersect
+select p1.pid, p1.pname
+from   Person p1, Knows k, Person p2
+where  k.pid1 = p1.pid and
+       k.pid2 = p2.pid and
+       p2.city = 'Chicago';
+\end{verbatim}}
+
+\end{description}
+\end{example}
+
+\newpage
+We now turn to the problems for this section.
+\begin{enumerate}[resume]
+\item\label{queryTwo}   
+Consider the query ``\emph{Find the pid and name of each person who works for Google and who has a strictly higher salary
+than some other person who he or she knows and who also works for Google}."
+
+\begin{enumerate}
+\item  \bluebullet\ Formulate this query in Pure SQL by only using the {\tt EXISTS} or {\tt NOT EXISTS} set predicates.
+
+\item \bluebullet\ Formulate this query in Pure SQL by only using the {\tt  IN}, {\tt NOT IN}, {\tt SOME}, or {\tt ALL} set membership predicates.
+
+\item  \bluebullet\  Formulate this query in Pure SQL without using set predicates.
+
+\end{enumerate}
+
+\item\label{queryThree}  Consider the query ``\emph{Find the cname of each company with headquarter in Cupertino, but that is not located in Indianapolis, along with the pid, name, and salary
+of each person who works for that company and who has the next-to-lowest salary 
+at that company.}''\footnote{By definition, a salary $s$ is next-to-lowest if there exists salary $s_1$ with $s_1<s$, but there do not exist
+two salaries $s_1$ and $s_2$ with $s_2<s_1<s$.}
+
+
+\begin{enumerate}
+\item  \bluebullet\  Formulate this query in Pure SQL by only using the {\tt EXISTS} or {\tt NOT EXISTS} set predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+\item  \bluebullet\  Formulate this query in Pure SQL by only using the {\tt  IN}, {\tt NOT IN}, {\tt SOME}, or {\tt ALL} set membership predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+\item    \bluebullet\  Formulate this query in Pure SQL without using set predicates.
+
+\end{enumerate}
+
+
+\item \label{queryFour} 
+Consider the query ``\emph{Find each $(c,p)$ pair where $c$ is the cname of a company and $p$ is the pid of a person who works
+for that company and who is known by all other persons who work for that company}.
+\begin{enumerate}
+\item  \bluebullet\   Formulate this query in Pure SQL by only using the {\tt EXISTS} or {\tt NOT EXISTS} set predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+\item  \bluebullet\ Formulate this query in Pure SQL by only using the {\tt  IN}, {\tt NOT IN}, {\tt SOME}, or {\tt ALL} set membership predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+\item  \bluebullet\   Formulate this query in Pure SQL without using  set predicates.
+
+\end{enumerate}
+
+\item \label{queryFive} Consider the query ``\emph{Find each skill that is not a jobskill of any person who works for Yahoo or for Netflix}."
+\begin{enumerate}
+
+\item  \bluebullet\   Formulate this query in Pure SQL using  subqueries and set predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+\item   \bluebullet\  Formulate this query in Pure SQL without using predicates.
+\end{enumerate}
+
+\item \label{querySeven} Consider the query ``\emph{Find the pid and name of each person who manages all-but-one person who works for Google.}
+\begin{enumerate}
+\item  \bluebullet\   Formulate this query in Pure SQL using subqueries and set predicates.
+You can not use the set operations {\tt INTERSECT}, {\tt UNION}, and {\tt EXCEPT}.
+
+\item   \bluebullet\  Formulate this query in Pure SQL without using set predicates.
+
+\end{enumerate}
+\end{enumerate}
+
+\newpage
+
+\section{Formulating queries in Relational Algebra and RA SQL}
+
+Reconsider the queries in Section~\ref{PureSQL}.   The goal of the problems in this section
+is to formulate these queries in Relational Algebra in standard notation and in RA SQL.  
+
+There are some further restrictions:
+\begin{itemize}
+\item You can only use {\tt WHERE} clauses that use 
+conditions involving constants.   For example conditions of the form ``$t.A\, \theta\, \text{'a'}$'' are allowed, but conditions of the 
+form '$t.A\, \theta\, s.B$' are not allowed.   The latter conditions can be absorbed in {\tt JOIN} operations in the {\tt FROM} clause.
+\item You can not use commas in any {\tt FROM} clause.  Rather, you should use {\tt JOIN} operations.
+\end{itemize}
+
+You can use the following letters, or indexed letters, to denote relation names in RA expressions:
+
+\begin{center}
+\fbox{
+\begin{tabular}{l|l}
+$P$, $P_1$, $P_2, \cdots$ & {\tt Person} \\
+$C$, $C_1$, $C_2, \cdots$ & {\tt Company} \\
+$S$, $S_1$, $S_2, \cdots$ & {\tt Skill} \\
+$W$, $W_1$, $W_2, \cdots$ & {\tt worksFor} \\
+$cL$, $cL_1$, $cL_2, \cdots$ & {\tt companyLocation} \\
+$pS$, $pS_1$, $pS_2, \cdots$ & {\tt personSkill} \\
+$M$, $M_1$, $M_2, \cdots$ & {\tt hasManager} \\
+$K$, $K_1$, $K_2, \cdots$ & {\tt Knows} \\
+\end{tabular}
+}
+\end{center}
+
+To illustrate what you need to do reconsider the query in Example~\ref{PureSQLquery} in Section~\ref{PureSQL}.
+
+\begin{example}\label{RAquery}
+Consider the query ``\emph{Find the pid and name of each person who (a)
+works for a company located in Bloomington  and (b)
+knows a person who lives in Chicago}.''
+
+\begin{description}
+\item[(a)]  Formulate this query in Relational Algebra in standard notation.
+
+A possible solution is
+{\tiny
+\[
+\begin{array}{l}
+\pi_{pid,pname}(Person\bowtie worksFor \bowtie\, \pi_{cname}(\sigma_{city = \mathbf{Bloomington}}(companyLocation))) \cap\\
+\qquad 
+\pi_{Person_1.pid,Person_1.pname}(Person_1 \bowtie_{Person_1.pid = pid1} Knows \bowtie_{pid2 = Person_2.pid}\,\pi_{Person_2.pid}(\sigma_{city = \mathbf{Chicago}}(Person_2)))
+\end{array}
+\]
+}
+
+If we use the letters in the above box, this expression becomes more succinct:
+
+{\tiny
+\[
+\begin{array}{l}
+\pi_{pid,pname}(P\bowtie W \bowtie\, \pi_{cname}(\sigma_{city = \mathbf{Bloomington}}(cL))) \cap\\
+\qquad 
+\pi_{P_1.pid,P_1.pname}(P_1 \bowtie_{P_1.pid = pid1} K \bowtie_{pid2 = P_2.pid}\,\pi_{P_2.pid}(\sigma_{city = \mathbf{Chicago}}(P_2)))
+\end{array}
+\]
+}
+
+You are also allowed to introduce letters that denote expressions.  For example, let $E$ and $F$ denote the expression
+\[ \pi_{pid,pname}(P\bowtie W \bowtie\, \pi_{cname}(\sigma_{city = \mathbf{Bloomington}}(cL)))\]
+and
+\[\pi_{P_1.pid,P_1.pname}(P_1 \bowtie_{P_1.pid = pid1} K \bowtie_{pid2 = P_2.pid}\,\pi_{P_2.pid}(\sigma_{city = \mathbf{Chicago}}(P_2))),\]
+respectively. Then we can write the solution as follows:
+\[E\cap F.\]
+
+\item[(b)]  Formulate this query in RA SQL.   
+
+A possible solution is
+{\footnotesize
+\begin{verbatim}
+select pid, pname
+from   Person
+       NATURAL JOIN worksFor
+       NATURAL JOIN (select cname 
+                     from   companyLocation
+                     where  city = 'Bloomington') C
+INTERSECT
+select P1.pid, P1.pname
+from   Person P1 
+       JOIN Knows ON (P1.pid = pid1)
+       JOIN (select pid
+             from   Person
+             where  city = 'Chicago') P2 ON (pid2 = P2.pid)
+order by 1,2;
+\end{verbatim}
+}                    
+
+Observe that the {\tt WHERE} clauses only use conditions involving constants.
+
+\end{description}
+\end{example}
+
+\newpage
+
+We now turn to the problems in this section.
+\begin{enumerate}[resume]
+\item Reconsider Problem~\ref{queryTwo}.
+Find the pid and name of each person who works for Google and who has a strictly higher salary
+than some other person who he or she knows and who also works for Google.
+\begin{enumerate}
+\item  \redbullet\  Formulate this query in Relational Algebra in standard notation.
+
+\item \bluebullet\  Formulate this query in RA SQL.
+\end{enumerate}
+
+\item Reconsider Problem~\ref{queryThree}.
+Find the cname of each company with headquarter in Bloomington, but not located in Indianapolis, along with the pid, name, and salary
+of each person who works for that company and who has the next-to-lowest salary
+at that company.
+
+\begin{enumerate}
+\item  \redbullet\ Formulate this query in Relational Algebra in standard notation.
+
+
+\item   \bluebullet\ Formulate this query in RA SQL.
+
+\end{enumerate}
+\item Reconsider Problem~\ref{queryFour}.  Find each $(c,p)$ pair where $c$ is the cname of a company and $p$ is the pid of a person who works
+for that company and who is known by all other persons who work for that company.
+\begin{enumerate}
+\item  \redbullet\ Formulate this query in Relational Algebra in standard notation.
+
+
+\item   \bluebullet\ 
+Formulate this query in RA SQL.
+\end{enumerate}
+
+\item Reconsider Problem~\ref{queryFive}. Find each skill that is not a jobskill of any person who works for Yahoo or for Netflix.
+
+\begin{enumerate}
+\item  \redbullet\ Formulate this query in Relational Algebra in standard notation.
+
+\item   \bluebullet\ Formulate this query in RA SQL.
+
+\end{enumerate}
+
+\item Reconsider Problem~\ref{querySeven}. Find the pid and name of each person who manages all-but-one person who works for Google.
+\begin{enumerate}
+\item  \redbullet\ Formulate this query in Relational Algebra in standard notation.
+
+
+\item  \bluebullet\  Formulate this query in RA SQL.
+
+\end{enumerate}
+\end{enumerate}
+
+\newpage
+\section{Formulating constraints using Relational Algebra}
+
+Recall that it is possible to express constraints in TRC and as boolean SQL queries.
+It is also possible to write constraints using RA expressions.
+Let $E$, $F$, and $G$  denote RA expressions. Then we can write RA expression comparisons that express constraints:
+\begin{center}
+\begin{tabular}{llll}
+$E \not=\emptyset$ & which is true if $E$ evaluates to an \blue{non-empty} relation \\
+$E = \emptyset$ & which is true if $E$ evaluates to the \blue{empty} relation \\
+$F \subseteq G$ & which is true if $F$ evaluates to a relation \\
+&that is a \blue{subset} of the relation obtained from $G$\\ 
+$F \not\subseteq G$ & which is true if $F$ evaluates to a relation \\
+&that is \blue{not} a \blue{subset} of the relation obtained from $G$\\ 
+\end{tabular}
+\end{center}
+
+Here are some examples of writing constraints in this manner.
+
+\begin{example}\label{constraintOne}
+``\emph{Some person works for Google}.''  This constraint can be written as follows:
+\[\pi_{pid}(\sigma_{cname = \mathbf{Google}}(worksFor)) \neq \emptyset.
+\]
+Indeed,  the RA expression \[\pi_{pid}(\sigma_{cname = \mathbf{Google}}(worksFor))\]
+computes the set of all person pids who work for Google.   If this set is not empty then there
+are indeed persons who work for Google.
+
+Incidentally, the constraint ``\emph{No one works for Google}'' can be written as follows:
+\[\pi_{pid}(\sigma_{cname = \mathbf{Google}}(worksFor)) = \emptyset.
+\]
+\end{example}
+
+\begin{example}\label{constraintTwo}
+\emph{Each person has at least two skills}.   This constraint can be written as follows:
+\[\pi_{pid}(P) \subseteq \pi_{pS_1.pid}(\sigma_{pS_1.skill \neq pS_2.skill}(pS_1\bowtie_{pS_1.pid = pS_2.pid} pS_2)).
+\]
+Indeed, \[\pi_{pid}(P)\] computes the set of all person pids and
+\[\pi_{pS_1.pid}(\sigma_{pS_1.skill \neq pS_2.skill}(pS_1\bowtie_{pS_1.pid = pS_2.pid} pS_2))\] computes the set of
+all pids of persons who have at least two skills.    When the first set is contained in the second we must have that each person has at least two skills.
+
+Incidentally, the constraint ``\emph{Some person has fewer than two skills}" can be written as follows:
+\[\pi_{pid}(P) \not\subseteq \pi_{pS_1.pid}(\sigma_{pS_1.skill \neq pS_2.skill}(pS_1\bowtie_{pS_1.pid = pS_2.pid} pS_2)).
+\]
+
+\end{example}
+
+We now turn to the problems in this section.
+
+Formulate each of the following constraints using RA expressions as illustrated in Example~\ref{constraintOne} and
+Example~\ref{constraintTwo}.
+
+\begin{enumerate}[resume]
+
+
+\item \redbullet\  Some person has a salary that is strictly lower than that of each of the persons who he or she manages.
+
+\item \redbullet\ No person knows all persons who work for Google.
+
+\item \redbullet\  Each person knows all of his or her managers.
+
+\item \redbullet\  Each employee and his or her managers work for the same company.
+
+\item \redbullet\  The attribute pid is a primary key of the Person relation.
+
+\end{enumerate}
+
+
+
+
+\newpage
+
+\section{Formulating queries in SQL using views}
+
+
+Formulate the following views and queries in SQL. You are allowed to combine the features of both Pure SQL and RA SQL.
+
+\begin{enumerate}[resume]
+
+\item  \label{viewtriangle} \bluebullet\ 
+Create a view {\tt Triangle} that contains each triple of pids of different persons $(p_1,p_2,p_3)$
+that mutually know each other.   
+
+Then test your view.
+           
+\item\label{viewone} \bluebullet\  Define a parameterized view {\tt SalaryBelow(cname text, salary integer)} that returns, for a given
+company identified by {\tt cname} and a given {\tt salary} value, the subrelation of
+{\tt Person} of persons who work for company {\tt cname} and whose salary is strictly below {\tt salary}.
+
+Test your view for the parameter values ({ 'IBM'},60000), ({'IBM'},50000), and ({'Apple'},65000).
+
+\item \bluebullet\ Define a parameterized view {\tt KnowsPersonAtCompany(p integer, c text)} that returns for a person with pid $p$ 
+the subrelation of {\tt Person} of persons who $p$ knows and who work for the company with cname $c$.
+
+Test your view for the parameters (1001, ‘Amazon’), (1001,‘Apple’), and (1015,‘Netflix’).
+
+\item \bluebullet\ Define a parameterized view {\tt KnownByPersonAtCompany(p integer, c text)} that returns the subrelation of {\tt Person} of persons
+who know the person with pid $p$ and who work for the company with cname $c$.
+
+Test your view for the parameters (1001, ‘Amazon’), (1001,‘Apple’), and (1015,‘Netflix’).
+
+\item \bluebullet\  Let $Tree(parent: integer, child: integer)$ be a rooted parent-child tree.   So a pair $(n,m)$ in $Tree$ indicates that node $n$ is a parent of node $m$.
+The {\tt sameGeneration(n1, n2)} binary relation is inductively defined using the following two rules:
+\begin{itemize}
+\item If $n$ is a node in $T$, then the pair $(n,n)$ is in the {\tt sameGeneration} relation. ({\bf Base rule})
+\item If $n_1$ is the parent of $m_1$ in $Tree$ and $n_2$ is the parent of $m_2$ in $Tree$ and 
+$(n_1,n_2)$ is a pair in the {\tt sameGeneration} relation then $(m_1,m_2)$ is a pair in the {\tt sameGeneration} relation. ({\bf Inductive Rule})
+\end{itemize}
+
+Write a \blue{recursive view} for the {\tt sameGeneration} relation.
+
+Test your view.
+\end{enumerate}
+
+
+\end{document}
+
+
+
+
+
