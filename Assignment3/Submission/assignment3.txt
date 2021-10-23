@@ -1,0 +1,307 @@
+Problem 6
+   cname   | headquarter 
+-----------+-------------
+ Apple     | Cupertino
+ Netflix   | LosGatos
+ Microsoft | Redmond
+(3 rows)
+
+step-1 removing the first IN
+   cname   | headquarter 
+-----------+-------------
+ Netflix   | LosGatos
+ Microsoft | Redmond
+ Apple     | Cupertino
+(3 rows)
+
+step-2 removing SOME
+   cname   | headquarter 
+-----------+-------------
+ Netflix   | LosGatos
+ Microsoft | Redmond
+ Apple     | Cupertino
+(3 rows)
+
+step-3 CONVERTING TO RA Sql
+   cname   | headquarter 
+-----------+-------------
+ Netflix   | LosGatos
+ Microsoft | Redmond
+ Apple     | Cupertino
+(3 rows)
+
+step-4 OPTIMIZING
+   cname   | headquarter 
+-----------+-------------
+ Netflix   | LosGatos
+ Microsoft | Redmond
+ Apple     | Cupertino
+(3 rows)
+
+Problem 7
+ pid  
+------
+ 1011
+(1 row)
+
+step-1 removing exists
+ pid  
+------
+ 1011
+(1 row)
+
+step-2 removing first and (converting it to intersect)
+ pid  
+------
+ 1011
+(1 row)
+
+step-3 removing last but one and(converting it to intersect)
+ pid  
+------
+ 1011
+(1 row)
+
+step-4 removing the last and
+ pid  
+------
+ 1011
+(1 row)
+
+step-5 removing the first not in
+ pid  
+------
+ 1011
+(1 row)
+
+step-6 removing last Not in
+ pid  
+------
+ 1011
+(1 row)
+
+step-7 removing last but one not in
+ pid  
+------
+ 1011
+(1 row)
+
+step-8 removing Not exist
+ pid  
+------
+ 1011
+(1 row)
+
+step-9 converting to RA SQL
+ pid  
+------
+ 1011
+(1 row)
+
+Problem 8
+ pid  | pname 
+------+-------
+ 1001 | Jean
+ 1002 | Vidya
+ 1009 | Hasan
+ 1012 | Eric
+(4 rows)
+
+step-1 removing the first exists and removing the first not exists
+ pid  | pname 
+------+-------
+ 1002 | Vidya
+ 1012 | Eric
+ 1001 | Jean
+ 1009 | Hasan
+(4 rows)
+
+step-2 removing the last exists --removing the last exists
+ pid  | pname 
+------+-------
+ 1002 | Vidya
+ 1012 | Eric
+ 1001 | Jean
+ 1009 | Hasan
+(4 rows)
+
+step-3 converting to RA SQL
+ pid  | pname 
+------+-------
+ 1002 | Vidya
+ 1012 | Eric
+ 1001 | Jean
+ 1009 | Hasan
+(4 rows)
+
+step-4 optimising the RA query
+ pid  | pname 
+------+-------
+ 1002 | Vidya
+ 1012 | Eric
+ 1001 | Jean
+ 1009 | Hasan
+(4 rows)
+
+Problem 9
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+step-1 removing exists
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+step-2 removing not exists and converting or to union
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+step-3 removing last not in -- removing last not in
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+step-4 removing the remaining not in 
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+step-5 converting to RA SQL
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+step-6 optimizing
+ cname  | headquarter  
+--------+--------------
+ Google | MountainView
+(1 row)
+
+Problem 10
+ pid  | exists 
+------+--------
+ 1001 | t
+ 1002 | f
+ 1003 | t
+ 1004 | f
+ 1005 | f
+ 1006 | f
+ 1007 | f
+ 1008 | f
+ 1009 | f
+ 1010 | f
+ 1011 | f
+ 1012 | f
+ 1013 | f
+ 1014 | f
+ 1015 | f
+ 1016 | f
+ 1017 | f
+ 1018 | f
+ 1019 | f
+(19 rows)
+
+step-1 converting exists to where
+ pid  | ?column? 
+------+----------
+ 1013 | f
+ 1004 | f
+ 1011 | f
+ 1001 | t
+ 1019 | f
+ 1018 | f
+ 1014 | f
+ 1012 | f
+ 1006 | f
+ 1002 | f
+ 1009 | f
+ 1017 | f
+ 1016 | f
+ 1003 | t
+ 1005 | f
+ 1007 | f
+ 1008 | f
+ 1010 | f
+ 1015 | f
+(19 rows)
+
+step-2 converting exists
+ pid  | ?column? 
+------+----------
+ 1018 | f
+ 1017 | f
+ 1010 | f
+ 1015 | f
+ 1001 | t
+ 1019 | f
+ 1006 | f
+ 1002 | f
+ 1009 | f
+ 1013 | f
+ 1014 | f
+ 1012 | f
+ 1016 | f
+ 1003 | t
+ 1005 | f
+ 1007 | f
+ 1004 | f
+ 1011 | f
+ 1008 | f
+(19 rows)
+
+step-3 converting not exists
+ pid  | ?column? 
+------+----------
+ 1018 | f
+ 1017 | f
+ 1010 | f
+ 1015 | f
+ 1001 | t
+ 1019 | f
+ 1006 | f
+ 1002 | f
+ 1009 | f
+ 1013 | f
+ 1014 | f
+ 1012 | f
+ 1016 | f
+ 1003 | t
+ 1005 | f
+ 1007 | f
+ 1004 | f
+ 1011 | f
+ 1008 | f
+(19 rows)
+
+step-4 converting to RA SQL
+ pid  | ?column? 
+------+----------
+ 1013 | f
+ 1004 | f
+ 1011 | f
+ 1001 | t
+ 1019 | f
+ 1018 | f
+ 1014 | f
+ 1012 | f
+ 1006 | f
+ 1002 | f
+ 1009 | f
+ 1017 | f
+ 1016 | f
+ 1003 | t
+ 1005 | f
+ 1007 | f
+ 1008 | f
+ 1010 | f
+ 1015 | f
+(19 rows)
+

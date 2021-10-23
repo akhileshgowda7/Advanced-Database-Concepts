@@ -1,0 +1,646 @@
+\documentclass[11pt]{article}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{xcolor}
+
+\newcommand{\red}[1]{{\color{red}#1}}
+\newcommand{\green}[1]{{\color{green}#1}}
+\newcommand{\blue}[1]{{\color{blue}#1}}
+\newcommand{\SFW}[3]{{\color{blue}}}
+
+\newcommand{\redbullet}{$\red{\bullet}$}
+\newcommand{\bluebullet}{$\blue{\bullet}$}
+
+\newcommand{\select}[2]{\sigma_{#1}(#2)}
+
+\newcommand{\project}[2]{\pi_{#1}(#2)}
+
+\newcommand{\division}[2]{#1\div #2}
+
+\newcommand{\join}[3]{#1\,\bowtie_{#2}\,#3}
+
+\newcommand{\naturaljoin}[2]{#1\bowtie #2}
+
+
+\newcommand{\leftsemijoin}[2]{#1\ltimes #2}
+
+\newcommand{\rightsemijoin}[2]{#1\rtimes #2}
+
+\newcommand{\compose}[2]{#1\circ #2}
+
+\newcommand{\inverse}[1]{{#1}^{-1}}
+
+\newcommand{\comp}[1]{\overline{#1}}
+
+
+
+
+
+\def\ojoin{\setbox0=\hbox{$\bowtie$}
+  \rule[-.02ex]{.25em}{.4pt}\llap{\rule[\ht0]{.25em}{.4pt}}}
+\def\louterjoin{\mathbin{\ojoin\mkern-5.8mu\bowtie}}
+\def\routerjoin{\mathbin{\bowtie\mkern-5.8mu\ojoin}}
+\def\fouterjoin{\mathbin{\ojoin\mkern-5.8mu\bowtie\mkern-5.8mu\ojoin}}
+
+
+\newcommand{\leftouterjoin}[2]{#1\louterjoin #2}	
+
+\newcommand{\rightouterjoin}[2]{#1\routerjoin #2}	
+
+\newcommand{\fullouterjoin}[2]{#1\fouterjoin #2}	
+
+\newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
+
+\begin{document}
+
+\title{B561 Advanced Database Concepts \\Assignment 3 \\Fall 2021}
+\author{Dirk Van Gucht}
+\date{}
+\maketitle
+
+This {assignment} relies on the lectures
+\begin{itemize}
+\item SQL Part 1 and SQL Part 2 (Pure SQL);
+\item Relational Algebra (RA);
+\item joins and semijoins;
+\item \blue{\bf Translating Pure SQL queries into RA expressions}; and
+\item \blue{\bf Query optimization}
+\end{itemize}
+with particular focus on the last two lectures.
+
+To turn in your assignment, you will need to upload to Canvas a single file with name {\tt assignment3.sql} which contains 
+the necessary SQL statements that solve the problems in this assignment.   
+The {\tt assignment3.sql} file must be so that the AI's can run it in their PostgreSQL environment.  
+You should use the {\tt Assignment-Script-2021-Fall-Assignment3.sql} file to construct the {\tt assignment3.sql} file. 
+(note that the data to be used for this assignment is included in this file.)
+In addition, you will need to upload a separate {\tt assignment3.txt} file that contains the results of running
+your queries.
+Finally, you need to upload a file {\tt assignment3.pdf} that contains the solutions to the problems that require it.
+
+The problems that need to be included in the {\tt assignment3.sql} are marked with a blue bullet \bluebullet.
+The problems that need to be included in the {\tt assignment3.pdf} are marked with a red bullet \redbullet.
+(You should aim to use Latex to construct your .pdf file.)
+
+\newpage
+\noindent
+\large{\bf Database schema and instances}
+\bigskip
+
+
+
+
+For the problems in this assignment we will use the following database schema:\footnote{The primary key, which may consist of one or more attributes, of each of these relations is underlined.}
+
+\begin{center}
+{\tt
+  \begin{tabular}{l}
+  {Person}($\underline{\tt pid}$, pname, city) \\
+  {Company}($\underline{\tt cname}, {\tt headquarter}$) \\
+  {Skill}($\underline{\tt skill}$) \\
+  {worksFor}($\underline{\tt pid}$, cname, salary) \\
+  {companyLocation}($\underline{\tt cname, city}$) \\
+  {personSkill}($\underline{\tt pid, skill}$) \\
+  {hasManager}($\underline{\tt eid, mid}$) \\
+  {Knows}($\underline{\tt pid1, pid2}$) \\
+   \end{tabular}
+  }
+\end{center}
+
+In this database we maintain a set of persons ({\tt Person}), a set
+of companies ({\tt Company}), and a set of (job) skills ({\tt Skill}).  
+The {\tt pname} attribute in {\tt Person} is the name of the person.  
+The {\tt city} attribute in {\tt Person} specifies the city in which the person lives.  
+The {\tt cname} attribute in {\tt Company} is the name of the company.
+The {\tt headquarter} attribute in {\tt Company} is the name of the city wherein the company has its headquarter.
+The {\tt skill} attribute in {\tt Skill} is the name of a (job) skill.
+
+A person can work for at most one company. This information is maintained in the {\tt worksFor} relation. (We permit that a person does not work for any company.)
+The {\tt salary} attribute in {\tt worksFor} specifies the salary made by the person.
+
+The {\tt city} attribute in {\tt companyLocation} indicates a city in which the company is located.
+(Companies may be located in multiple cities.)
+
+A person can have multiple job skills. This information is maintained in the {\tt personSkill} relation.  A job skill can be
+the job skill of multiple persons.  (A person may not have any job skills, and a job skill may
+have no persons with that skill.)
+
+A pair $(e,m)$ in {\tt hasManager} indicates that person $e$ has  
+person $m$ as one of his or her managers.
+We permit that an employee has multiple managers and that a manager  may manage
+multiple employees.  (It is possible that an employee has no manager
+and that an employee is not a manager.)
+We further require that 
+an employee and his or her managers must work for the
+same company.
+
+The relation {\tt Knows} maintains a set of pairs $(p_1,p_2)$ where $p_1$ 
+and $p_2$ are pids of persons.   The pair $(p_1,p_2)$ indicates that the person with
+pid $p_1$ knows the person with pid $p_2$.
+We do not assume that the relation {\tt Knows} is
+symmetric: it is possible that $(p_1,p_2)$ is in the relation but that
+$(p_2,p_1)$ is not.
+
+The domain for the attributes {\tt pid}, {\tt pid1}, {\tt pid2}, {\tt salary}, {\tt eid}, and {\tt mid} is {\tt integer}.   The domain for all other attributes is {\tt text}.
+
+We assume the following foreign key constraints:
+\begin{itemize}
+\item {\tt pid} is a foreign key in {\tt worksFor} referencing the primary key {\tt pid} in {\tt Person};
+\item {\tt cname} is a foreign key in {\tt worksFor} referencing the primary key {\tt cname} in {\tt Company};
+\item {\tt cname} is a foreign key in {\tt companyLocation} referencing the primary key {\tt cname} in {\tt Company};
+\item {\tt pid} is a foreign key in {\tt personSkill} referencing the primary key {\tt pid} in {\tt Person};
+\item {\tt skill} is a foreign key in {\tt personSkill} referencing the primary key {\tt skill} in {\tt Skill};
+\item {\tt eid} is a foreign key in {\tt hasManager} referencing the primary key {\tt pid} in {\tt Person}; 
+\item {\tt mid} is a foreign key in {\tt hasManager} referencing the primary key {\tt pid} in {\tt Person};
+\item {\tt pid1} is a foreign key in {\tt Knows} referencing the primary key {\tt pid} in {\tt Person}; and
+\item {\tt pid2} is a foreign key in {\tt Knows} referencing the primary key {\tt pid} in {\tt Person}
+\end{itemize}
+
+\newpage
+
+\noindent
+\large{\bf Pure SQL and RA SQL}
+
+\bigskip
+In this assignemt, we distinguish between Pure SQL and RA SQL.
+Below we list the {\bf only} features that are allowed in Pure SQL and in RA SQL. 
+
+In particular notice that 
+\begin{itemize}
+\item {\tt join}, {\tt NATURAL~join}, and {\tt CROSS~join} are {\bf not} allowed in Pure SQL.
+\item The predicates  [{\tt not}]~{\tt IN}, {\tt SOME}, {\tt ALL}, [{\tt not}]~{\tt exists} are {\bf not} allowed in RA SQL.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{c}
+{\bf The only features allowed in Pure SQL} \\ \hline
+\begin{tabular}{l}
+{\tt select ... from ... where}\\
+{\tt WITH ...} \\
+{\tt union, intersect, except} operations \\
+{\tt exists} and {\tt not exists} predicates \\
+{\tt IN} and {\tt not IN} predicates \\
+{\tt ALL} and {\tt SOME} predicates \\
+{\tt VIEW}s that can only use the above RA SQL features
+\end{tabular} \\
+ \\
+{\bf The only features allowed in RA SQL} \\ \hline 
+\begin{tabular}{l}
+{\tt select ... from ... where}\\
+{\tt WITH ...} \\
+{\tt union, intersect, except} operations\\
+{\tt join ... ON ...}, {\tt natural join}, and {\tt CROSS join} operations \\
+{\tt VIEW}s that can only use the above RA SQL features\\ 
+commas in the {\tt from} clause are {\bf not} allowed \\
+\end{tabular} \\
+\end{tabular}
+\end{center}
+
+\newpage
+
+\section{Theoretical problems related to query translation and optimization}
+\label{optimization}
+
+\begin{enumerate}[resume]
+
+\item\label{IfThenElse} Consider two RA expressions $E_1$ and $E_2$ over the
+same schema.   Furthermore, consider an RA expression $F$ with
+a schema that is not necessarily the same as that of $E_1$ and
+$E_2$.
+
+Consider the following {\tt if-then-else} query:
+
+\begin{center}
+\begin{tabular}{lll}
+{\tt if} $F = \emptyset$ &{\tt then}& {\tt return} $E_1$ \\
+& {\tt else}& {\tt return} $E_2$
+\end{tabular}
+\end{center}
+
+So this query evaluates to the expression $E_1$ if $F= \emptyset$
+and to the expression $E_2$ if $F \neq \emptyset$.
+
+We can formulate this query in SQL as follows\footnote{In this SQL query
+{\tt E1}, {\tt E2}, and {\tt F} denote  SQL queries corresponding to the
+RA expressions $E_1$, $E_2$, and $F$, respectively.}:
+
+{\footnotesize
+\begin{verbatim}
+select e1.*
+from   E1 e1
+where  not exists (select distinct row() from F)
+union
+select e2.*
+from   E2 e2
+where  exists (select distinct row() from F);
+\end{verbatim}}
+
+\begin{remark}
+The subquery query 
+{\footnotesize
+\begin{verbatim}
+select distinct row() from F
+\end{verbatim}}
+returns the empty set if $F=\emptyset$ and
+returns the tuple {\tt ()} if $F\neq \emptyset$.\footnote{The tuple {\tt ()} is often referred to as the \emph{empty tuple}, i.e., the tuple without components. It is akin
+to the empty string $\epsilon$ in the theory of formal languages. I.e., the string wihout alphabet characters.}
+In RA, this query can be written as $$\pi_{()}(F).$$
+I.e., the projection of $F$ on an empty list of attributes.
+\end{remark}
+
+
+\redbullet\ In function of $E_1$, $E_2$, and $F$, write an RA expression in standard notation that
+expresses this {\tt if-then-else} query.\footnote{Hint: consider using the Pure SQL to RA SQL translation algorithm.}
+
+
+\item\label{existsInSelect} Let {\tt R(x)} be a unary relation that can store a
+set of integers $R$.
+Consider the following boolean SQL query:
+
+{\footnotesize
+\begin{verbatim}
+select not exists(select 1
+                  from   R r1, R r2
+                  where  r1.x <> r2.x) as fewerThanTwo;
+\end{verbatim}}
+
+This boolean query returns the constant ``{\tt true}" if $R$ has fewer than two elements 
+and returns the constant ``{\tt false}" otherwise.
+
+\redbullet\ Using the insights you gained from Problem~\ref{IfThenElse}, 
+write an RA expression in standard notation that expresses the above boolean SQL query.\footnote{
+Hint:  recall that, in general, a constant value ``{\bf a}" can be represented
+in RA by an expression of the form {\tt (A: {\bf a})}.   (Here, {\tt A} is some arbitrary attribute name.) Furthermore, recall that
+we can express {\tt (A: {\bf a})} in SQL as ``{\tt select {\bf a} as A}".
+Thus RA expressions for the constants ``{\tt true}"  and ``{\tt false}" can be the
+expressions {\tt (A: true)} and {\tt (A: false)}, respectively.}
+
+
+\item  In the translation algorithm from Pure SQL to RA
+we tacitly assumed that the argument of each set predicate was a (possibly parameterized)
+Pure SQL query that did not use a {\tt union}, {\tt intersect}, nor an {\tt except} operation.
+
+In this problem, you are asked to extend the translation algorithm from Pure SQL to RA
+such that the set predicates [{\tt not}] {\tt exists} are eliminated that have as an
+argument a Pure SQL query (possibly with parameters) that uses
+a {\tt union}, {\tt intersect}, or {\tt except} operation.
+
+
+More specifically, consider the following types of queries using the
+[{\tt not}] {\tt exists} set predicate.
+{\footnotesize
+\begin{verbatim}
+select L1(r1,...,rn)
+from   R1 r1, ..., Rn rn
+where  C1(r1,...,rn) and 
+              [not] exists (select L2(s1,...,sm)
+                            from   S1 s1,..., S1 sm
+                            where  C2(s1,...,sm,r1,...,rn)
+                            [union | intersect | except]
+                            select L3(t1,...,tk)
+                            from   T1 t1, ..., Tk tk
+                            where  C3(t1,...,tk,r1,...,rn))
+\end{verbatim}
+}
+
+Observe that there are six cases to consider:
+{\footnotesize
+{\tt
+\begin{enumerate}
+\item   exists (... union ...)
+\item   exists (... intersect ...)
+\item   exists (... except ...)
+\item   not exists (... union ...)
+\item   not exists (... intersect ...)
+\item   not exists (... except ...)
+\end{enumerate}
+}}
+
+\redbullet\ Show how such SQL queries can be translated to equivalent RA expressions in standard notation.
+Be careful in the translation since you should take into account that
+projections do not in general distribute over intersections and over set differences.
+
+
+
+To get practice, first consider the following special case where $n=1$, $m=1$, and $k=1$.
+I.e., the following case:  \footnote{Once you can handle this case, the
+general case is a similar.}
+
+{\footnotesize
+\begin{verbatim}
+select L1(r)
+from   R r
+where  C1(r) and [not] exists (select L2(s)
+                               from   S s
+                               where  C2(s,r)
+                               [union | intersect | except]
+                               select L3(t)
+                               from   T t
+                               where  C3(t,r))
+\end{verbatim}
+}
+
+
+
+\item \label{rewrite}\redbullet\ Let $R$ be a relation with schema $(a,b,c)$ and let $S$ be a relation
+with schema $(d,e)$.  
+
+Prove, from first principles\footnote{In particular, do not use the rewrite rule of pushing projections over joins.  Rather, use
+Predicate Logic or TRC to provide a proof.}, the correctness of the following rewrite rule:
+\[{\pi_{a,d}(R \bowtie_{c = d}S) = \pi_{a,d}(\pi_{a,c}(R)\bowtie_{c=d}\pi_{d}(S))}.\]
+
+ \item\redbullet\ Consider the same rewrite rule 
+ \[\pi_{a,d}(R \bowtie_{c = d}S) = \pi_{a,d}(\pi_{a,c}(R)\bowtie_{c=d}\pi_{d}(S))\]
+ as in problem~\ref{rewrite}.
+ 
+ Furthermore assume that $S$ has  primary key $d$ and that $R$ has foreign key
+ $c$ referencing this primary key in $S$.
+ 
+ How can you simplify this rewrite rule?
+ Argue why this rewrite rule is correct.
+
+\end{enumerate}
+
+\section{Translating Pure SQL queries to RA expressions and optimized RA expressions}
+
+In this section, you are asked to \emph{translate} Pure SQL queries into RA SQL queries as well as in standard RA expressions using the \emph{translation
+algorithm given in class}.    You are required to show the intermediate steps that you took during the
+translation.   After the translation, you are asked to \emph{optimize} the resulting RA expressions.
+
+You can use the following letters, or indexed letters, to denote relation names in RA expressions:
+
+\begin{center}
+\fbox{
+\begin{tabular}{l|l}
+$P$, $P_1$, $P_2, \cdots$ & {\tt Person} \\
+$C$, $C_1$, $C_2, \cdots$ & {\tt Company} \\
+$S$, $S_1$, $S_2, \cdots$ & {\tt Skill} \\
+$W$, $W_1$, $W_2, \cdots$ & {\tt worksFor} \\
+$cL$, $cL_1$, $cL_2, \cdots$ & {\tt companyLocation} \\
+$pS$, $pS_1$, $pS_2, \cdots$ & {\tt personSkill} \\
+$hM$, $hM_1$, $hM_2, \cdots$ & {\tt hasManager} \\
+$K$, $K_1$, $K_2, \cdots$ & {\tt Knows} \\
+\end{tabular}
+}
+\end{center}
+
+We illustrate what is expected using an example.
+
+\begin{example}\label{TranslationExample}
+Consider the query ``\emph{Find each $(p,c)$ pair where $p$ is the pid of a person who works for a company $c$ 
+located in Bloomington and 
+whose salary is the lowest among the salaries of persons who work for that company.}
+\medskip
+
+A possible formulation of this query in Pure SQL is
+{\tiny
+\begin{verbatim}
+select w.pid, w.cname
+from   worksfor w
+where  w.cname in  (select cl.cname 
+                    from   companyLocation cl 
+                    where  cl.city = 'Bloomington') and
+       w.salary <= ALL (select w1.salary
+                        from   worksfor w1
+                        where  w1.cname = w.cname);
+\end{verbatim}        }   
+which is translated to\footnote{Translation of `{\tt and}' in the `{\tt where}' clause.}
+{\tiny
+\begin{verbatim}
+select q.pid, q.cname
+from   (select w.*
+        from   worksfor w
+        where  w.cname in (select cl.cname
+                           from   companyLocation cl
+                           where  cl.city = 'Bloomington')
+        intersect
+        select w.*
+        from   worksfor w
+        where  w.salary <= ALL (select w1.salary
+                                from   worksfor w1
+                                where  w1.cname = w.cname)) q;
+\end{verbatim}
+}   
+which is translated to\footnote{Translation of  `{\tt in}' and `{\tt <= ALL}'.}
+{\tiny
+\begin{verbatim}
+select q.pid, q.cname
+from   (select w.*
+        from   worksfor w, companyLocation cl
+        where  w.cname = cl.cname and cl.city = 'Bloomington'
+        intersect
+        (select w.*
+         from   worksfor w
+         except
+         select w.*
+         from   worksfor w, worksfor w1
+         where  w.salary > w1.salary and w1.cname = w.cname)) q;
+\end{verbatim}
+}
+which is translated to\footnote{Move 'constant' condition.}
+{\tiny
+\begin{verbatim}
+select q.pid, q.cname
+from   (select w.*
+        from   worksfor w, (select cl.* from companyLocation cl	 where cl.city = 'Bloomington') cl
+        where  w.cname = cl.cname
+        intersect
+        (select w.*
+         from   worksfor w
+         except
+         select w.*
+         from   worksfor w, worksfor w1
+         where  w.salary > w1.salary and w1.cname = w.cname)) q;
+\end{verbatim}
+}
+which is translated to the RA SQL query\footnote{Introduction of natural join and join.}
+{\tiny
+\begin{verbatim}
+select q.pid, q.cname
+from   (select w.*
+        from   worksfor w
+               natural join (select cl.* from companyLocation cl  where cl.city = 'Bloomington') cl
+               intersect
+              (select w.*
+               from   worksfor w
+               except
+               select w.*
+               from   worksfor w join worksfor w1 on (w.salary > w1.salary and w1.cname = w.cname))) q;
+\end{verbatim}
+}
+
+This RA SQL query can be formulated as an RA expression in standard notation as follows:
+\[\project{W.pid,W.cname}{\mathbf{E}\cap(W - \mathbf{F})}\]
+where
+\[\mathbf{E} = \project{W.*}{\naturaljoin{W}{\sigma_{city = \mathbf{Bloomington} }(cL)}}\]
+and
+\[\mathbf{F} = \project{W.*}{\join{W}{W.salary > W_1.salary\,\land\,W_1.cname = W.cname}{W_1}}.\]
+
+We can now commence the optimization.
+
+\begin{description}
+\item[Step 1] Observe the expression $\mathbf{E}\cap(W-\mathbf{F})$.   This expression is equivalent with $(\mathbf{E}\cap W) - \mathbf{F}$.   Then observe that, in this case,
+$\mathbf{E} \subseteq W$.   Therefore $\mathbf{E}\cap W = \mathbf{E}$, and therefore $\mathbf{E}\cap(W-\mathbf{F})$ can be replaced by 
+$\mathbf{E}-\mathbf{F}$.
+So the expression for the query becomes 
+\[\project{W.pid,W.cname}{\mathbf{E} -\mathbf{F}}.\] 
+
+\item[Step 2] We now concentrate on the expression
+\[\mathbf{E} = \project{W.*}{\naturaljoin{W}{\sigma_{city = \mathbf{Bloomington} }(cL)}}.\]
+We can push the projection over the join and get
+\[\project{W.*}{W \bowtie \project{cname}{\sigma_{city = \mathbf{Bloomington}}(cL)}}.\]
+Which further simplifies to \[W\ltimes \sigma_{city = \mathbf{Bloomington}}(cL).\]
+We will call this expression $\mathbf{E}^{\text{opt}}$.
+
+\item[Step 3] We now concentrate on the expression
+\[\mathbf{F} = \project{W.*}{\join{W}{W.salary > W_1.salary\,\land\,W_1.cname = W.cname}{W_1}}.\]
+We can push the projection over the join and get the expression
+\[\project{W.*}{\join{W}{W.salary > W_1.salary\,\land\,W_1.cname = W.cname}{\project{W_1.cname, W_1.salary}{W_1}}}.\]
+We will call this expression $\mathbf{F}^{\text{opt}}$.
+
+Therefore, the fully optimized RA expression is
+\[\project{W.pid,W.cname}{\mathbf{E}^{\text{opt}} - \mathbf{F}^{\text{opt}}}.\]
+I.e.,
+\[
+\begin{array}{l}
+\project{W.pid,W.cname}{W\ltimes \sigma_{city = \mathbf{Bloomington}}(cL) - \\
+\qquad\qquad\qquad \project{W.*}{\join{W}{W.salary > W_1.salary\,\land\,W_1.cname = W.cname}{\project{W_1.cname, W_1.salary}{W_1}}}}.
+\end{array}
+\]
+
+
+\end{description}
+\end{example}
+
+\newpage
+We now turn to the problems in this section.
+
+\begin{enumerate}[resume]
+\item Consider the query ``\emph{Find the cname and headquarter of each company that employs persons who earn less than 55000 and
+who do not live in Bloomington}.''
+
+A possible way to write this query in Pure SQL is 
+{\footnotesize
+\begin{verbatim}
+select c.cname, c.headquarter
+from   company c
+where  c.cname in (select w.cname
+                   from   worksfor w
+                   where  w.salary < 55000 and 
+                          w.pid = SOME (select p.pid
+                                        from   person p
+                                        where  p.city <> 'Bloomington'));
+\end{verbatim} }                  
+
+\begin{enumerate}  
+\item  \bluebullet\ Using the Pure SQL to RA SQL translation algorithm, translate this Pure SQL query to an
+equivalent RA SQL query.   Show the translation steps you used to obtain your solution.
+\item  \redbullet\ Optimize this RA SQL query and provide the optimized expression in standard RA notation.
+Specify at least three conceptually different rewrite rules that you used during the optimization.
+\end{enumerate}
+
+\item Consider the query ``\emph{Find the pid of each person who has all-but-one job skill}."
+
+A possible way to write this query in Pure SQL is
+ {\footnotesize
+\begin{verbatim}
+select p.pid
+from   person p
+where  exists (select 1
+               from   skill s
+               where  (p.pid, s.skill) not in (select ps.pid, ps.skill 
+                                               from   personSkill ps)) and
+        not exists (select 1
+                    from   skill s1, skill s2
+                    where  s1.skill <> s2.skill and
+                           (p.pid, s1.skill) not in (select ps.pid, ps.skill 
+                                                     from   personSkill ps) and
+                           (p.pid, s2.skill) not in (select ps.pid, ps.skill 
+                                                     from   personSkill ps));
+\end{verbatim} } 
+
+\begin{enumerate}  
+\item  \bluebullet\ Using the Pure SQL to RA SQL translation algorithm, translate this Pure SQL query to an
+equivalent RA SQL query.   Show the translation steps you used to obtain your solution.
+\item  \redbullet\ Optimize this RA SQL query and provide the optimized expression in standard RA notation.
+Specify at least three conceptually different rewrite rules that you used during the optimization.
+\end{enumerate}
+
+\item Consider the query ``\emph{Find the pid and name of each person who 
+works for a company located in Bloomington but who does not 
+know any person who lives in Chicago}.''
+ 
+A possible way to write this query in Pure SQL is
+{\footnotesize
+\begin{verbatim}
+select p.pid, p.pname
+from   person p
+where  exists (select 1
+               from   worksFor w, companyLocation c
+               where  p.pid = w.pid and w.cname = c.cname and c.city = 'Bloomington') and
+       p.pid not in (select k.pid1
+                     from   knows k
+                     where  exists (select 1
+                                    from   person p
+                                    where  k.pid2 = p.pid and  p.city = 'Chicago'));
+\end{verbatim}
+}
+
+\begin{enumerate}  
+\item  \bluebullet\ Using the Pure SQL to RA SQL translation algorithm, translate this Pure SQL query to an
+equivalent RA SQL query.   Show the translation steps you used to obtain your solution.
+\item  \redbullet\ Optimize this RA SQL query and provide the optimized expression in standard RA notation.
+Specify at least three conceptually different rewrite rules that you used during the optimization.
+\end{enumerate}
+\newpage
+\item Consider the query ``\emph{Find the cname and headquarter of each company that (1) employs at least one person and (2) whose workers who make at most 70000 have both the programming and AI skills}.''
+
+A possible way to write this query in Pure SQL is
+{\tiny
+\begin{verbatim}
+select c.cname, c.headquarter
+from   company c
+where  exists (select 1 from worksfor w where w.cname = c.cname) and
+       not exists (select 1
+                   from   worksfor w
+                   where  w.cname = c.cname and w.salary <= 70000 and
+                          (w.pid not in (select ps.pid from personskill ps where skill = 'Programming') or
+                           w.pid not in (select ps.pid from personskill ps where skill = 'AI')));
+                                            
+\end{verbatim}  }  
+
+\begin{enumerate}  
+\item  \bluebullet\ Using the Pure SQL to RA SQL translation algorithm, translate this Pure SQL query to an
+equivalent RA SQL query.   Show the translation steps you used to obtain your solution.
+\item  \redbullet\ Optimize this RA SQL query and provide the optimized expression in standard RA notation.
+Specify at least three conceptually different rewrite rules that you used during the optimization.
+
+\end{enumerate}
+
+\item Consider the following Pure SQL query.
+{\footnotesize
+\begin{verbatim}
+select p.pid, exists (select 1
+                      from    hasManager hm1, hasManager hm2
+                      where   hm1.mid = p.pid and hm2.mid = p.pid and 
+                              hm1.eid <> hm2.eid) 
+from   Person p;
+\end{verbatim}
+}
+
+
+This query returns a pair $(p,{\tt t})$ if $p$ is the pid of a person who manages at least two persons
+and returns the pair $(p,{\tt f})$ otherwise.\footnote{{\tt t} represent the boolean value {\tt true} and
+{\tt f} represents the boolean value {\tt false}.} 
+
+\begin{enumerate}
+\item  \bluebullet\ Using the insights gained from Problem~\ref{existsInSelect}, translate this Pure SQL query to an
+equivalent RA SQL query.   
+\item  \redbullet\ Optimize this RA SQL query and provide the optimized expression in standard RA notation.
+\end{enumerate}
+\end{enumerate}
+\newpage
+
+
+\end{document}
